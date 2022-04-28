@@ -126,34 +126,41 @@
         // Add plan as walls
         const wallGeometry = new THREE.PlaneGeometry( 10, 10 );
         const wallMaterial = new THREE.MeshStandardMaterial( { color: 0x4f4f4f, side: THREE.DoubleSide } );
+        const wallMaterial4 = new THREE.MeshStandardMaterial( { color: 0x4fffff, side: THREE.DoubleSide } );
 
         const wall1 = new THREE.Mesh( wallGeometry,wallMaterial );
 		wall1.position.set( 0, 3, -5 );
-		wall1.rotation.set( 0 ,0, 0 );
+		wall1.rotation.set( 0, 0, 0 );
 		wall1.receiveShadow = true;
 		scene.add( wall1 );
 
-        const wall2= new THREE.Mesh( wallGeometry,wallMaterial );
+        const wall2 = new THREE.Mesh( wallGeometry,wallMaterial );
 		wall2.position.set( 5, 3, 0 );
-		wall2.rotation.set( 0 ,Math.PI/2, 0 );
+		wall2.rotation.set( 0, -Math.PI/2, 0 );
 		wall2.receiveShadow = true;
 		scene.add( wall2 );
 
-        const wall3= new THREE.Mesh( wallGeometry,wallMaterial );
-		wall3.position.set( -5, 3, 0 );
-		wall3.rotation.set( 0 ,Math.PI/2, 0 );
+        const wall3 = new THREE.Mesh( wallGeometry,wallMaterial4 );
+		wall3.position.set( 0, 3, 5 );
+		wall3.rotation.set( 0, Math.PI, 0 );
 		wall3.receiveShadow = true;
 		scene.add( wall3 );
 
-        const wall4= new THREE.Mesh( wallGeometry,wallMaterial );
-		wall4.position.set( 0, 3, 5 );
-		wall4.rotation.set( 0 ,0, 0 );
+        const wall4 = new THREE.Mesh( wallGeometry,wallMaterial );
+		wall4.position.set( -5, 3, 0 );
+		wall4.rotation.set( 0, Math.PI/2, 0 );
 		wall4.receiveShadow = true;
 		scene.add( wall4 );
 
+        // const wall3 = new THREE.Mesh( wallGeometry,wallMaterial4 );
+		// wall3.position.set( 0, 3, 5 );
+		// wall3.rotation.set( 0 ,0, 0 );
+		// wall3.receiveShadow = true;
+		// scene.add( wall3 );
+
         // Mass-generate balls
         const t0 = performance.now();
-        for ( let i = 0; i < 500; i ++ ) {
+        for ( let i = 0; i < 50; i ++ ) {
 
             const object = new THREE.Mesh(
                 new THREE.SphereGeometry( radius, 16, 8 ),
@@ -261,54 +268,57 @@
         const decalDiffuse = textureLoader.load( 'textures/decal/decal-diffuse.png' );
         const decalNormal = textureLoader.load( 'textures/decal/decal-normal.jpg' );
         const decals = [];
+        const decalMaterial = new THREE.MeshPhongMaterial( {
+            specular: 0x444444,
+            map: decalDiffuse,
+            normalMap: decalNormal,
+            normalScale: new THREE.Vector2( 1, 1 ),
+            shininess: 30,
+            transparent: true,
+            depthTest: true,
+            depthWrite: false,
+            polygonOffset: true,
+            polygonOffsetFactor: - 4,
+            wireframe: false
+        } );
+        const params = {
+				minScale: 5,
+				maxScale: 20,
+			};
 
-        // function shoot(euler) { 
-            const decalMaterial = new THREE.MeshPhongMaterial( {
-				specular: 0x444444,
-				map: decalDiffuse,
-				normalMap: decalNormal,
-				normalScale: new THREE.Vector2( 1, 1 ),
-				shininess: 30,
-				transparent: true,
-				depthTest: true,
-				depthWrite: false,
-				polygonOffset: true,
-				polygonOffsetFactor: - 4,
-				wireframe: false
-			} );
-            let mesh;
-            const position = new THREE.Vector3(0,0,0);
-			const euler = new THREE.Euler(0, 0, -1, "XYZ");
-			const size = new THREE.Vector3( 0.5, 0.5, 0.5 );
+        function shoot(wall) { 
+            const rdp = Math.random()*10;
+            const position = new THREE.Vector3( 0, 0, 0 ); // Get from the ball collision
+			const euler = wall.rotation;
 
-			// const params = {
-			// 	minScale: 10,
-			// 	maxScale: 20,
-			// 	rotate: true,
-			// 	clear: function () {
-			// 		removeDecals();
-			// 	}
-			// };
+            const scale = Math.random() * 10+5;
+            const size = new THREE.Vector3( scale, scale, scale);
+            console.log("scale: " +scale);
+            console.log("size:  " + size.toArray());
 
-            // const scale = params.minScale + Math.random() * ( params.maxScale - params.minScale );
-            // size.set( scale, scale, scale );
+            // 10+0.2*10
+            const material = decalMaterial.clone();
+            material.color.setHex( Math.random() * 0xffffff );
 
-            // const material = decalMaterial.clone();
-            // material.color.setHex( Math.random() * 0xffffff );
+            const m = new THREE.Mesh( new DecalGeometry( wall, position, euler, size ), material );
 
-            const m = new THREE.Mesh( new DecalGeometry( mesh, position, euler, size ), material );
-
-        //     decals.push( m );
+            if(m) {
+                console.log("DECAL: " + m.position.toArray());
+            }
+            decals.push( m );
             scene.add( m );
-        // }
 
-        // function removeDecals() {
-        //     decals.forEach( function ( d ) {
-        //         scene.remove( d );
-        //     } );
-        //     decals.length = 0;
+        }
 
-        // }
+        function removeDecals() {
+            if(decals.length == 10) {
+                decals.forEach( function ( d ) {
+                    scene.remove( d );
+                } );
+            }
+            decals.length = 0;
+
+        }
 ///////////////////////////////////////////////
 
         // 
@@ -328,7 +338,6 @@
                 object.position.z += object.userData.velocity.z * delta;
 
                 // keep objects inside room
-
                 if ( object.position.x < - range || object.position.x > range ) {
                     object.position.x = THREE.MathUtils.clamp( object.position.x, - range, range );
                     object.userData.velocity.x = - object.userData.velocity.x;
@@ -347,9 +356,12 @@
                     object.userData.velocity.z = - object.userData.velocity.z;
                 }
 //////////////////////////////////////////////////////////////////////
-                // if (object.position.x == range) {
-                    // shoot(0);
-                // }
+                if ( object.position.z == -range ) shoot( wall1 );
+                if ( object.position.x == range ) shoot( wall2 );
+                if ( object.position.z == range) shoot( wall3 );
+                if ( object.position.x == -range) shoot( wall4 );
+                
+
 //////////////////////////////////////////////////////////////////////
                 for ( let j = i + 1; j < room.children.length; j ++ ) {
                     const object2 = room.children[ j ];
