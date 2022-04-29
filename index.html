@@ -114,10 +114,11 @@
 
         // Add plane as floor
         const floor = new THREE.Mesh(
-            new THREE.PlaneGeometry( 10, 10 ), 
+            new THREE.PlaneGeometry( 8, 8 ), 
             new THREE.MeshStandardMaterial( { color: 0x695d45, side: THREE.DoubleSide } ) 
         );
-
+        floor.material.transparent = true;
+        floor.material.opacity = 0.5;
 		floor.position.set( 0, 0, 0 );
 		floor.rotation.set( Math.PI/2 , 0, 0 );
 		floor.receiveShadow = true;
@@ -151,12 +152,6 @@
 		wall4.rotation.set( 0, Math.PI/2, 0 );
 		wall4.receiveShadow = true;
 		scene.add( wall4 );
-
-        // const wall3 = new THREE.Mesh( wallGeometry,wallMaterial4 );
-		// wall3.position.set( 0, 3, 5 );
-		// wall3.rotation.set( 0 ,0, 0 );
-		// wall3.receiveShadow = true;
-		// scene.add( wall3 );
 
         // Mass-generate balls
         const t0 = performance.now();
@@ -261,9 +256,13 @@
 
 		window.addEventListener( 'resize', onWindowResize, false );
 
-/////////////////////////////////////////
+//----------------------------------------------------------------
+// Reference:
 // https://github.com/mrdoob/three.js/blob/master/examples/webgl_decals.html
 // https://threejs.org/docs/index.html?q=DecalGeometry#examples/en/geometries/DecalGeometry
+//----------------------------------------------------------------
+
+        // Decal texture and material and array
         const textureLoader = new THREE.TextureLoader();
         const decalDiffuse = textureLoader.load( 'textures/decal/decal-diffuse.png' );
         const decalNormal = textureLoader.load( 'textures/decal/decal-normal.jpg' );
@@ -281,45 +280,35 @@
             polygonOffsetFactor: - 4,
             wireframe: false
         } );
-        const params = {
-				minScale: 5,
-				maxScale: 20,
-			};
 
-        function shoot(wall) { 
-            const rdp = Math.random()*10;
-            const position = new THREE.Vector3( 0, 0, 0 ); // Get from the ball collision
-			const euler = wall.rotation;
-
-            const scale = Math.random() * 10+5;
-            const size = new THREE.Vector3( scale, scale, scale);
-            console.log("scale: " +scale);
-            console.log("size:  " + size.toArray());
-
-            // 10+0.2*10
+        // Pass arguments, when the wall is being hit by object(ball)
+        function splash( wall, object ) {
+            // Get Hex value of object color, assign it to decal
+            const objectColor = object.material.color.getHexString();       
             const material = decalMaterial.clone();
-            material.color.setHex( Math.random() * 0xffffff );
+            material.color.set( "#" + objectColor );
 
-            const m = new THREE.Mesh( new DecalGeometry( wall, position, euler, size ), material );
+            // Randomize decal size
+            const scale = Math.random() + 1 ;
+            const size = new THREE.Vector3( scale, scale, scale);
 
-            if(m) {
-                console.log("DECAL: " + m.position.toArray());
-            }
+            const m = new THREE.Mesh( new DecalGeometry( wall, object.position, wall.rotation, size ), material );
+
+            // Randomize decal rotation
+            // if ( wall.rotation.y % Math.PI == 0 ) {
+               
+            // }
+
+            // Add decal to scene
             decals.push( m );
             scene.add( m );
 
-        }
-
-        function removeDecals() {
-            if(decals.length == 10) {
-                decals.forEach( function ( d ) {
-                    scene.remove( d );
-                } );
+            // Limit decal numbers in the scene
+            if ( decals.length >= 30 ) {
+                const firstElement = decals.shift();
+                scene.remove( firstElement );
             }
-            decals.length = 0;
-
         }
-///////////////////////////////////////////////
 
         // 
         function render() {
@@ -337,7 +326,7 @@
                 object.position.y += object.userData.velocity.y * delta;
                 object.position.z += object.userData.velocity.z * delta;
 
-                // keep objects inside room
+                // Keep objects inside room
                 if ( object.position.x < - range || object.position.x > range ) {
                     object.position.x = THREE.MathUtils.clamp( object.position.x, - range, range );
                     object.userData.velocity.x = - object.userData.velocity.x;
@@ -355,14 +344,14 @@
                     object.position.z = THREE.MathUtils.clamp( object.position.z, - range, range );
                     object.userData.velocity.z = - object.userData.velocity.z;
                 }
-//////////////////////////////////////////////////////////////////////
-                if ( object.position.z == -range ) shoot( wall1 );
-                if ( object.position.x == range ) shoot( wall2 );
-                if ( object.position.z == range) shoot( wall3 );
-                if ( object.position.x == -range) shoot( wall4 );
-                
 
-//////////////////////////////////////////////////////////////////////
+                // Splash when object hits the wall
+                if ( object.position.z == -range ) splash( wall1, object );
+                if ( object.position.x == range ) splash( wall2, object );
+                if ( object.position.z == range) splash( wall3, object );
+                if ( object.position.x == -range) splash( wall4, object );
+                
+                // Define collision between objects 
                 for ( let j = i + 1; j < room.children.length; j ++ ) {
                     const object2 = room.children[ j ];
 
