@@ -195,16 +195,36 @@
 		controller2.addEventListener( 'selectend', onSelectEnd );
 		scene.add( controller2 );
 
-        // Add default model to controller
+        // Add model to controller
         const controllerModelFactory = new XRControllerModelFactory();
 
-        controllerGrip1 = renderer.xr.getControllerGrip( 0 );
-        controllerGrip1.add( controllerModelFactory.createControllerModel( controllerGrip1 ) );
-        scene.add( controllerGrip1 );
+		const loader = new GLTFLoader().setPath('models/');
 
-        controllerGrip2 = renderer.xr.getControllerGrip( 1 );
-        controllerGrip2.add( controllerModelFactory.createControllerModel( controllerGrip2 ) );
-        scene.add( controllerGrip2 );
+        loader.load('Splashgun.gltf', function (gltf) {
+			gltf.scene.scale.set(0.03, 0.03, 0.03);
+			let mymodel = gltf.scene;
+			mymodel.rotation.y = THREE.Math.degToRad(180);
+			mymodel.position.set(-0.01, -0.01, 0);
+			controller1.add(mymodel);   // Right
+		});
+
+        loader.load('Splashgun.gltf', function (gltf) {
+			gltf.scene.scale.set(0.03, 0.03, 0.03);
+			let mymodel = gltf.scene;
+			mymodel.rotation.y = THREE.Math.degToRad(180);
+			mymodel.position.set(-0.01, -0.01, 0);
+			controller2.add(mymodel);   // Left
+		});
+
+        
+
+        // controllerGrip1 = renderer.xr.getControllerGrip( 0 );
+        // controllerGrip1.add( controllerModelFactory.createControllerModel( controllerGrip1 ) );
+        // scene.add( controllerGrip1 );
+
+        // controllerGrip2 = renderer.xr.getControllerGrip( 1 );
+        // controllerGrip2.add( controllerModelFactory.createControllerModel( controllerGrip2 ) );
+        // scene.add( controllerGrip2 );
 
         // Add pointing line for controllers
 		const lineGeometry = new THREE.BufferGeometry().setFromPoints([
