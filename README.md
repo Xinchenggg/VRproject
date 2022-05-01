@@ -8,5 +8,4 @@ To be improved:
 
 Good to have:
 1. Background
-2. Models
-3. Pick up object on hand, shoot when released
+2. Pick up object on hand, shoot when released
