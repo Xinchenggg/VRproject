@@ -33,7 +33,7 @@
             import { XRControllerModelFactory } from "https://unpkg.com/three/examples/jsm/webxr/XRControllerModelFactory.js";
             import { DecalGeometry } from "https://unpkg.com/three/examples/jsm/geometries/DecalGeometry.js";
             import dat from "https://cdn.skypack.dev/dat.gui";
-
+           
             // Setup and constant
             const radius = 0.08;
             let count = 0;
@@ -54,8 +54,10 @@
                 }
             }
 
-            gui.add(world.plane, 'width', 1, 8).onChange(generatePlane);
-            gui.add(world.plane, 'height', 1, 8).onChange(generatePlane);
+            const floorFolder = gui.addFolder("Floor");
+            floorFolder.add(world.plane, 'width', 1, 8).onChange(generatePlane);
+            floorFolder.add(world.plane, 'height', 1, 8).onChange(generatePlane);
+            floorFolder.open();
 
             function generatePlane() {
                 floor.geometry.dispose();
