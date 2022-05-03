@@ -32,7 +32,7 @@
             import { VRButton } from "https://unpkg.com/three/examples/jsm/webxr/VRButton.js";
             import { XRControllerModelFactory } from "https://unpkg.com/three/examples/jsm/webxr/XRControllerModelFactory.js";
             import { DecalGeometry } from "https://unpkg.com/three/examples/jsm/geometries/DecalGeometry.js";
-            import dat from "https://cdn.skypack.dev/dat.gui";
+	    import dat from "https://cdn.skypack.dev/dat.gui";
            
             // Setup and constant
             const radius = 0.08;
@@ -42,7 +42,6 @@
             const clock = new THREE.Clock();
             const DECALS = 30;
             const BALLS = 70;
-
 
             // Dat.gui
             const gui = new dat.GUI();
@@ -112,7 +111,6 @@
                 camera.position.set(world.camera.position.x, world.camera.position.y, world.camera.position.z);
             }
 
-
             // Setup scene, camera, renderer
             const scene = new THREE.Scene();
             scene.background = new THREE.Color(0x505050);
@@ -125,6 +123,7 @@
                 1000
             );
             camera.position.set(world.camera.position.x, world.camera.position.y, world.camera.position.z);
+            camera.position.set(0, 3, 3);
             camera.lookAt(new THREE.Vector3(0, 2, 0)); // not working
 
             // Setup renderer
@@ -184,6 +183,14 @@
             );
             floor.material.transparent = world.plane.transparent;
             floor.material.opacity = world.plane.opacity;
+                new THREE.PlaneGeometry(8, 8),
+                new THREE.MeshStandardMaterial({
+                    color: 0x695d45,
+                    side: THREE.DoubleSide,
+                })
+            );
+            floor.material.transparent = true;
+            floor.material.opacity = 0.5;
             floor.position.set(0, 0, 0);
             floor.rotation.set(Math.PI / 2, 0, 0);
             floor.receiveShadow = true;
@@ -197,6 +204,14 @@
             });
             const wallMaterial4 = new THREE.MeshStandardMaterial({
                 color: world.wall4.color,
+            // Add plan as walls
+            const wallGeometry = new THREE.PlaneGeometry(10, 10);
+            const wallMaterial = new THREE.MeshStandardMaterial({
+                color: 0x4f4f4f,
+                side: THREE.DoubleSide,
+            });
+            const wallMaterial4 = new THREE.MeshStandardMaterial({
+                color: 0x4fffff,
                 side: THREE.DoubleSide,
             });
 
