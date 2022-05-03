@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <title>My first three.js app</title>
+        <style>
+            body {
+                margin: 0;
+            }
+        </style>
+    </head>
+
+    <body>
+        <script
+            async
+            src="https://unpkg.com/es-module-shims@1.3.6/dist/es-module-shims.js"
+        ></script>
+        <script type="importmap">
+            {
+                "imports": {
+                    "three": "https://unpkg.com/three@0.139.2/build/three.module.js"
+                }
+            }
+        </script>
+        <script type="module">
+            import * as THREE from "three";
+            import { OrbitControls } from "https://unpkg.com/three/examples/jsm/controls/OrbitControls.js";
+            import { GLTFLoader } from "https://unpkg.com/three/examples/jsm/loaders/GLTFLoader.js";
+            import { KTX2Loader } from "https://unpkg.com/three/examples/jsm/loaders/KTX2Loader.js";
+            import { MeshoptDecoder } from "https://unpkg.com/three/examples/jsm/libs/meshopt_decoder.module.js";
+            import { BoxLineGeometry } from "https://unpkg.com/three/examples/jsm/geometries/BoxLineGeometry.js";
+            import { VRButton } from "https://unpkg.com/three/examples/jsm/webxr/VRButton.js";
+            import { XRControllerModelFactory } from "https://unpkg.com/three/examples/jsm/webxr/XRControllerModelFactory.js";
+            import { DecalGeometry } from "https://unpkg.com/three/examples/jsm/geometries/DecalGeometry.js";
+            import dat from "https://cdn.skypack.dev/dat.gui";
+
+            // Setup and constant
+            const radius = 0.08;
+            let count = 0;
+            let normal = new THREE.Vector3();
+            const relativeVelocity = new THREE.Vector3();
+            const clock = new THREE.Clock();
+            const DECALS = 30;
+            const BALLS = 70;
+
+
+            // Dat.gui
+            const gui = new dat.GUI();
+
+            const world = {
+                plane: {
+                    width: 8,
+                    height: 8
+                }
+            }
+
+            gui.add(world.plane, 'width', 1, 8).onChange(generatePlane);
+            gui.add(world.plane, 'height', 1, 8).onChange(generatePlane);
+
+            function generatePlane() {
+                floor.geometry.dispose();
+                floor.geometry = new THREE.PlaneGeometry(world.plane.width, world.plane.height);
+            }
+
+
+            // Setup scene, camera, renderer
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x505050);
+
+            // Setup camera
+            const camera = new THREE.PerspectiveCamera(
+                75,
+                window.innerWidth / window.innerHeight,
+                0.1,
+                1000
+            );
+            camera.position.set(0, 3, 3);
+            camera.lookAt(new THREE.Vector3(0, 2, 0)); // not working
+
+            // Setup renderer
+            const renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.outputEncoding = THREE.sRGBEncoding;
+            document.body.appendChild(renderer.domElement);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMapSoft = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+            // Add VR DOM, initialize XR
+            document.body.appendChild(VRButton.createButton(renderer));
+            renderer.xr.enabled = true;
+
+            // Add camera orbit control
+            // controls.update() must be called after any manual changes to the camera's transform
+            let controls = new OrbitControls(camera, renderer.domElement);
+            controls.listenToKeyEvents(window); // optional
+
+            controls.enableDamping = true; // an animation loop is required when either damping or auto-rotation are enabled
+            controls.dampingFactor = 0.05;
+            controls.screenSpacePanning = false;
+            controls.minDistance = 1;
+            controls.maxDistance = 50;
+            // controls.maxPolarAngle = Math.PI / 2;    // Limit camera angle to look up
+
+            // Add spot light
+            const spotLight = new THREE.SpotLight(0xffffff, 0.8);
+            spotLight.castShadow = true;
+            spotLight.position.set(0, 12, 0);
+            spotLight.target.position.set(0, 0, 0);
+            spotLight.shadow.camera.near = 2;
+            spotLight.shadow.camera.far = 13;
+            spotLight.shadow.camera.fov = 30;
+            // spotLight.shadow.mapSize.set( 4096, 4096 );	// Shadow resolution
+            spotLight.shadow.radius = 1;
+            scene.add(spotLight);
+            scene.add(spotLight.target);
+
+            // Create room space
+            const room = new THREE.LineSegments(
+                new BoxLineGeometry(10, 10, 10, 1, 1, 1),
+                new THREE.LineBasicMaterial({ color: 0x808080 })
+            );
+            room.geometry.translate(0, 3, 0);
+            scene.add(room);
+
+            // Add plane as floor
+            const floor = new THREE.Mesh(
+                new THREE.PlaneGeometry(world.plane.width, world.plane.height),
+                new THREE.MeshStandardMaterial({
+                    color: 0x695d45,
+                    side: THREE.DoubleSide,
+                })
+            );
+            floor.material.transparent = true;
+            floor.material.opacity = 0.5;
+            floor.position.set(0, 0, 0);
+            floor.rotation.set(Math.PI / 2, 0, 0);
+            floor.receiveShadow = true;
+            scene.add(floor);
+
+            // Add plane as walls
+            const wallGeometry = new THREE.PlaneGeometry(10, 10);
+            const wallMaterial = new THREE.MeshStandardMaterial({
+                color: 0x4f4f4f,
+                side: THREE.DoubleSide,
+            });
+            const wallMaterial4 = new THREE.MeshStandardMaterial({
+                color: 0x4fffff,
+                side: THREE.DoubleSide,
+            });
+
+            const wall1 = new THREE.Mesh(wallGeometry, wallMaterial);
+            wall1.position.set(0, 3, -5);
+            wall1.rotation.set(0, 0, 0);
+            wall1.receiveShadow = true;
+            scene.add(wall1);
+
+            const wall2 = new THREE.Mesh(wallGeometry, wallMaterial);
+            wall2.position.set(5, 3, 0);
+            wall2.rotation.set(0, -Math.PI / 2, 0);
+            wall2.receiveShadow = true;
+            scene.add(wall2);
+
+            const wall3 = new THREE.Mesh(wallGeometry, wallMaterial4);
+            wall3.position.set(0, 3, 5);
+            wall3.rotation.set(0, Math.PI, 0);
+            wall3.receiveShadow = true;
+            scene.add(wall3);
+
+            const wall4 = new THREE.Mesh(wallGeometry, wallMaterial);
+            wall4.position.set(-5, 3, 0);
+            wall4.rotation.set(0, Math.PI / 2, 0);
+            wall4.receiveShadow = true;
+            scene.add(wall4);
+
+            // Mass-generate balls
+            const t0 = performance.now();
+            for (let i = 0; i < BALLS; i++) {
+                const object = new THREE.Mesh(
+                    new THREE.SphereGeometry(radius, 16, 8),
+                    new THREE.MeshLambertMaterial({
+                        color: Math.random() * 0xffffff,
+                    })
+                );
+
+                object.castShadow = true;
+                object.receiveShadow = true;
+                object.position.set(0.5, 0, 0);
+
+                object.position.x = Math.random() * 4 - 2;
+                object.position.y = Math.random() * 4;
+                object.position.z = Math.random() * 4 - 2;
+
+                object.userData.velocity = new THREE.Vector3();
+                object.userData.velocity.x = Math.random() * 0.01 - 0.005;
+                object.userData.velocity.y = Math.random() * 0.01 - 0.005;
+                object.userData.velocity.z = Math.random() * 0.01 - 0.005;
+
+                room.add(object);
+            }
+            const t1 = performance.now();
+            console.log(`${t1 - t0} milliseconds.`);
+
+            // Add controllers
+            let controller1, controller2; // Right, Left
+            let controllerGrip1, controllerGrip2;
+
+            controller1 = renderer.xr.getController(0);
+            controller1.addEventListener("selectstart", onSelectStart);
+            controller1.addEventListener("selectend", onSelectEnd);
+            scene.add(controller1);
+
+            controller2 = renderer.xr.getController(1);
+            controller2.addEventListener("selectstart", onSelectStart);
+            controller2.addEventListener("selectend", onSelectEnd);
+            scene.add(controller2);
+
+            // Add model to controller
+            const controllerModelFactory = new XRControllerModelFactory();
+
+            const loader = new GLTFLoader().setPath("models/");
+
+            loader.load("Splashgun.gltf", function (gltf) {
+                gltf.scene.scale.set(0.03, 0.03, 0.03);
+                let mymodel = gltf.scene;
+                mymodel.rotation.y = THREE.Math.degToRad(180);
+                mymodel.position.set(-0.01, -0.01, 0);
+                controller1.add(mymodel); // Right
+            });
+
+            loader.load("Splashgun.gltf", function (gltf) {
+                gltf.scene.scale.set(0.03, 0.03, 0.03);
+                let mymodel = gltf.scene;
+                mymodel.rotation.y = THREE.Math.degToRad(180);
+                mymodel.position.set(-0.01, -0.01, 0);
+                controller2.add(mymodel); // Left
+            });
+
+            // controllerGrip1 = renderer.xr.getControllerGrip( 0 );
+            // controllerGrip1.add( controllerModelFactory.createControllerModel( controllerGrip1 ) );
+            // scene.add( controllerGrip1 );
+
+            // controllerGrip2 = renderer.xr.getControllerGrip( 1 );
+            // controllerGrip2.add( controllerModelFactory.createControllerModel( controllerGrip2 ) );
+            // scene.add( controllerGrip2 );
+
+            // Add pointing line for controllers
+            const lineGeometry = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(0, 0, 0),
+                new THREE.Vector3(0, 0, -1),
+            ]);
+
+            const lineMaterial = new THREE.LineBasicMaterial({
+                color: 0xffffff,
+            });
+
+            const line = new THREE.Line(lineGeometry, lineMaterial);
+            line.name = "line";
+            line.scale.z = 5;
+
+            // Attach line to controllers
+            controller1.add(line.clone());
+            controller2.add(line.clone());
+
+            // Controller functions
+            function onSelectStart() {
+                this.userData.isSelecting = true;
+            }
+
+            function onSelectEnd() {
+                this.userData.isSelecting = false;
+            }
+
+            function handleController(controller) {
+                if (controller.userData.isSelecting) {
+                    const object = room.children[count++];
+
+                    object.position.copy(controller.position);
+                    object.userData.velocity.x = (Math.random() - 0.5) * 3;
+                    object.userData.velocity.y = (Math.random() - 0.5) * 3;
+                    object.userData.velocity.z = Math.random() - 9;
+                    object.userData.velocity.applyQuaternion(controller.quaternion);
+
+                    if (count === room.children.length) count = 0;
+                }
+            }
+
+            // Window resize
+            function onWindowResize() {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+
+            window.addEventListener("resize", onWindowResize, false);
+
+            //----------------------------------------------------------------
+            // Reference:
+            // https://github.com/mrdoob/three.js/blob/master/examples/webgl_decals.html
+            // https://threejs.org/docs/index.html?q=DecalGeometry#examples/en/geometries/DecalGeometry
+            //----------------------------------------------------------------
+
+            // Decal texture and material and array
+            const textureLoader = new THREE.TextureLoader();
+            const decalDiffuse = textureLoader.load(
+                "textures/decal/decal-diffuse.png"
+            );
+            const decalNormal = textureLoader.load(
+                "textures/decal/decal-normal.jpg"
+            );
+            const decals = [];
+            const decalMaterial = new THREE.MeshPhongMaterial({
+                specular: 0x444444,
+                map: decalDiffuse,
+                normalMap: decalNormal,
+                normalScale: new THREE.Vector2(1, 1),
+                shininess: 30,
+                transparent: true,
+                depthTest: true,
+                depthWrite: false,
+                polygonOffset: true,
+                polygonOffsetFactor: -4,
+                wireframe: false,
+            });
+
+            // Pass arguments, when the wall is being hit by object(ball)
+            function splash(wall, object) {
+                // Get Hex value of object color, assign it to decal
+                const objectColor = object.material.color.getHexString();
+                const material = decalMaterial.clone();
+                material.color.set("#" + objectColor);
+
+                // Randomize decal size
+                const scale = Math.random() + 1;
+                const size = new THREE.Vector3(scale, scale, scale);
+
+                // Randomize decal rotation
+                const randomz = Math.random() * 360;
+                const rotation = new THREE.Euler(0, wall.rotation.y, randomz);
+
+                const m = new THREE.Mesh(
+                    new DecalGeometry(wall, object.position, rotation, size),
+                    material
+                );
+
+                // Add decal to scene
+                decals.push(m);
+                scene.add(m);
+
+                // Limit decal numbers in the scene
+                if (decals.length >= DECALS) {
+                    const firstElement = decals.shift();
+                    scene.remove(firstElement);
+                }
+            }
+
+            //
+            function render() {
+                handleController(controller1);
+                handleController(controller2);
+
+                const delta = clock.getDelta() * 0.8; // Slow down simulation
+                const range = 5 - radius; // Ball shooting range
+
+                for (let i = 0; i < room.children.length; i++) {
+                    const object = room.children[i];
+
+                    object.position.x += object.userData.velocity.x * delta;
+                    object.position.y += object.userData.velocity.y * delta;
+                    object.position.z += object.userData.velocity.z * delta;
+
+                    // Keep objects inside room
+                    if (object.position.x < -range || object.position.x > range) {
+                        object.position.x = THREE.MathUtils.clamp(object.position.x, -range, range);
+                        object.userData.velocity.x = -object.userData.velocity.x;
+                    }
+
+                    if (object.position.y < radius || object.position.y > 6) {
+                        object.position.y = Math.max(object.position.y, radius);
+
+                        object.userData.velocity.x *= 0.98;
+                        object.userData.velocity.y = -object.userData.velocity.y * 0.8;
+                        object.userData.velocity.z *= 0.98;
+                    }
+
+                    if (object.position.z < -range || object.position.z > range) {
+                        object.position.z = THREE.MathUtils.clamp(object.position.z, -range, range);
+                        object.userData.velocity.z = -object.userData.velocity.z;
+                    }
+
+                    // Splash when object hits the wall
+                    if (object.position.z == -range) splash(wall1, object);
+                    if (object.position.x == range) splash(wall2, object);
+                    if (object.position.z == range) splash(wall3, object);
+                    if (object.position.x == -range) splash(wall4, object);
+
+                    // Define collision between objects
+                    for (let j = i + 1; j < room.children.length; j++) {
+                        const object2 = room.children[j];
+
+                        normal.copy(object.position).sub(object2.position);
+
+                        const distance = normal.length();
+
+                        if (distance < 2 * radius) {
+                            normal.multiplyScalar(0.5 * distance - radius);
+
+                            object.position.sub(normal);
+                            object2.position.add(normal);
+
+                            normal.normalize();
+
+                            relativeVelocity.copy(object.userData.velocity).sub(object2.userData.velocity);
+
+                            normal = normal.multiplyScalar(relativeVelocity.dot(normal));
+
+                            object.userData.velocity.sub(normal);
+                            object2.userData.velocity.add(normal);
+                        }
+                    }
+                    object.userData.velocity.y -= 9.8 * delta;
+                }
+            }
+
+            renderer.setAnimationLoop(function () {
+                render();
+                renderer.render(scene, camera);
+            });
+
+            // Add helper
+            scene.add(new THREE.AxesHelper(5));
+            scene.add(new THREE.CameraHelper(spotLight.shadow.camera));
+            scene.add(new THREE.GridHelper(10, 10));
+        </script>
+    </body>
+</html>
