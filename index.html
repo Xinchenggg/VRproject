@@ -19,6 +19,7 @@
                     "three": "https://unpkg.com/three@0.139.2/build/three.module.js"
                 }
             }
+            
     </script>
     <script type="module">
         import * as THREE from "three";
@@ -35,6 +36,7 @@
         import { GUI } from 'https://unpkg.com/three/examples/jsm/libs/lil-gui.module.min.js';
         import { createText } from 'https://unpkg.com/three/examples/jsm/webxr/Text2D.js';
         import Stats from 'https://unpkg.com/three/examples/jsm/libs/stats.module.js';
+        import dat from "https://cdn.skypack.dev/dat.gui";
 
         // Setup and constant
         const radius = 0.08;        // Ball radius
@@ -49,7 +51,75 @@
         const DECALS = 30;
         const BALLS = 50;
         const FLIES = 8;
+      
+        // Dat.gui
+        const gui = new dat.GUI();
 
+        const world = {
+            plane: {
+                width: 8,
+                height: 8,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.5,
+                color: 0x695d45
+            },
+            walls: {
+                color: 0x4f4f4f
+            },
+            wall3: {
+                color: 0x4fffff
+            },
+            camera: {
+                position: {
+                    x: 0,
+                    y: 3,
+                    z: 3
+                }
+            }
+        }
+
+        const floorFolder = gui.addFolder("Floor");
+        const floorGeometryFolder = floorFolder.addFolder("Geometry");
+        const floorMaterialFolder = floorFolder.addFolder("Material");
+
+        floorGeometryFolder.add(world.plane, 'width', 1, 8).onChange(generatePlane);
+        floorGeometryFolder.add(world.plane, 'height', 1, 8).onChange(generatePlane);
+        floorGeometryFolder.add(world.plane, 'wireframe').onChange(() => {
+            floor.material.wireframe = world.plane.wireframe;
+        });
+
+        floorMaterialFolder.addColor(world.plane, 'color').onChange((value) => floor.material.color.set(value));
+        floorMaterialFolder.add(world.plane, 'transparent').onChange(() => {
+            floor.material.transparent = world.plane.transparent;
+        });
+        floorMaterialFolder.add(world.plane, 'opacity', 0, 1).step(0.01).onChange(() => {
+            floor.material.opacity = world.plane.opacity;
+        });
+
+        floorGeometryFolder.open();
+        floorMaterialFolder.open();
+        floorFolder.open();
+
+        function generatePlane() {
+            floor.geometry.dispose();
+            floor.geometry = new THREE.PlaneGeometry(world.plane.width, world.plane.height);
+        }
+
+        const wallFolder = gui.addFolder("Walls");
+        wallFolder.addColor(world.walls, 'color').onChange((value) => wallMaterial.color.set(value));
+
+        wallFolder.addColor(world.wall3, 'color').onChange((value) => wallMaterial3.color.set(value));
+
+        const cameraFolder = gui.addFolder("Camera");
+        cameraFolder.add(world.camera.position, "x", -50, 50).onChange(cameraView);
+        cameraFolder.add(world.camera.position, "y", -50, 50).onChange(cameraView);
+        cameraFolder.add(world.camera.position, "z", -50, 50).onChange(cameraView);
+
+        function cameraView() {
+            camera.position.set(world.camera.position.x, world.camera.position.y, world.camera.position.z);
+        }
+      
         // Setup scene, camera, renderer
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x505050);
